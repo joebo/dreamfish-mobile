@@ -1,5 +1,5 @@
 (function() {
-  var Activity, ActivityView, AddView, BASE_URL, CURRENT_USERGUID, CURRENT_USERNAME, Dreamfish, ISODateString, IndexView, LOCAL, Link, LinkCollection, Links, LinksN, MembersView, NotYetView, OtherView, Resource, Session, UserView, Workspace, applyStyles;
+  var Activity, ActivityView, AddView, BASE_URL, CURRENT_USERGUID, CURRENT_USERNAME, DiscussionView, Dreamfish, ISODateString, IndexView, LOCAL, Link, LinkCollection, Links, LinksN, MembersView, NotYetView, OtherView, Resource, Session, UserView, Workspace, applyStyles;
   var __bind = function(func, context) {
     return function(){ return func.apply(context, arguments); };
   }, __extends = function(child, parent) {
@@ -79,7 +79,10 @@
           topic: link.topic,
           url: link.url,
           votes: link.votes,
-          date: link.date
+          date: link.date,
+          comment: link.comment,
+          username: link.username,
+          user_guid: link.user_guid
         };
       });
     } else {
@@ -121,10 +124,10 @@
   Resource.prototype.get = function(guid, success) {
     return $.ajax({
       url: BASE_URL + '?key=' + guid,
-      dataType: "jsonp",
+      dataType: "json",
       success: function(data) {
         var row;
-        row = JSON.parse(data);
+        row = data;
         return success(row);
       }
     });
@@ -138,7 +141,7 @@
   __extends(Dreamfish, Resource);
   Dreamfish.prototype.elgg = function(callback) {
     return $.ajax({
-      url: "http://www.dreamfish.com/mod/dreamfish_theme/[EXPORT URL]",
+      url: "http://www.dreamfish.com/mod/dreamfish_theme/jsonexport.php",
       dataType: "jsonp",
       success: function(data) {
         return callback(data);
@@ -218,8 +221,9 @@
     el = $('.ui-page-active .ui-content');
     el.find('ul[data-role]').listview();
     el.find('div[data-role="fieldcontain"]').fieldcontain();
+    el.find('div[data-role="collapsible"]').collapsible();
     el.find('button[data-role="button"],a[data-role="button"]').button();
-    el.find('input[type="text"]').textinput();
+    el.find('input[type="text"],textarea').textinput();
     el.find('.pretty-date').prettyDate();
     return el.page();
   };
@@ -236,7 +240,7 @@
   LinksN = new LinkCollection();
   AddView = function() {
     AddView.__super__.constructor.apply(this, arguments);
-    this.template = _.template('<div data-role="fieldcontains">        \n<label>Topic: </label>\n  <input type="text" id="topic"></input><br>\n <label>URL: </label>\n  <input type="text" id="url"></input>\n  <a href="" id="DiscussionAdd" data-role="button"   data-inline="true">Add</a>\n</div>\n <br>\n  <ul data-role="listview">\n  <% _.each(data, function(link) { %>\n           <li>\n              <h3><a href="<%=link.get(\'url\')%>" rel="external"><%=link.get(\'topic\')%></a></h3>                       \n              <p><a href=\'/delete/<%=link.get(\'guid\')%>\' class=\'delete\' rel=\'<%=link.get(\'guid\')%>\'>delete</a>                         \n              <a href=\'/view/<%=link.get(\'guid\')%>\' class="vote" rel=\'<%=link.get(\'guid\')%>\'>vote</a>\n              <a href=\'/view/<%=link.get(\'guid\')%>\' class="vote2" rel=\'<%=link.get(\'guid\')%>\'>vote</a> \n              </p>\n          </li> \n  <% }); %>\n  </ul>');
+    this.template = _.template('<div data-role="fieldcontains">        \n  <label for="topic">Topic: </label>\n  <input type="text" id="topic"></input>\n</div>\n<div data-role="fieldcontains">        \n <label for="url">Link: (optional)</label>\n  <input type="text" id="url"></input>\n</div>\n<div data-role="fieldcontains">        \n    <label for="textarea">Comments:</label>\n    <textarea cols="40" rows="8" name="textarea" id="textarea"></textarea>\n    <a href="" id="DiscussionAdd" data-role="button"   data-inline="true">Add</a>          \n</div>  \n  \n <br>            \n  <% _.each(data, function(link) { %>\n           <div data-role="collapsible" data-collapsed="true">\n              <h3><div style="width:100%"><%=link.get(\'topic\')%></div></h3>                       \n              <% if (link.get(\'url\')) { %> <p><a href="<%=link.get(\'url\')%>" rel="external">View Link</a></p><% } %>\n              <% if (link.get(\'comment\')) { %> <p><%=link.get(\'comment\')%></p><% } %>\n              <p>Posted By: <img src="http://www.dreamfish.com/mod/profile/icondirect.php?lastcache=1265999843&username=<%=link.get(\'username\')%>&size=small"><%=link.get(\'username\')%></p>\n              <p>Posted: <span class="pretty-date" title="<%=link.get(\'date\')%>"><%=link.get(\'date\')%></span></p>\n              <p>\n                <a href=\'#discussion-<%=link.get(\'guid\')%>\'>View Comments</a>\n                <a href=\'#discussion-<%=link.get(\'guid\')%>\' data-role="button" data-inline="true">Add Comment</a>\n              </p>                        \n              <p><a href=\'/delete/<%=link.get(\'guid\')%>\' class=\'delete\' rel=\'<%=link.get(\'guid\')%>\'>delete</a></p>                        \n              </p>\n          </div>\n  <% }); %>\n  </ul>');
     _.bindAll(this, 'refresh');
     LinksN.bind("refresh", this.refresh);
     return this;
@@ -253,8 +257,11 @@
     el.find('#DiscussionAdd').click(function() {
       new Links().add({
         url: $('#url').val(),
-        date: ISODateString(new Date()),
-        topic: $('#topic').val()
+        date: new Date(),
+        topic: $('#topic').val(),
+        comment: $('#textarea').val(),
+        username: CURRENT_USERNAME,
+        user_guid: CURRENT_USERGUID
       }, function() {
         LinksN.fetch();
         return LinksN.refresh();
@@ -351,6 +358,36 @@
     $('.ui-page-active .ui-content').html("<h1>not yet implemented</h1>");
     return applyStyles();
   };
+  DiscussionView = function() {
+    this.template = _.template('  \n  <h1><%=data.topic%></h1>\n  Posted By: <img src="http://www.dreamfish.com/mod/profile/icondirect.php?lastcache=1265999843&username=<%=data.username%>&size=small"><%=data.username%>\n  <p>Posted: <span class="pretty-date" title="<%=data.date%>"><%=data.date%></span></p>\n  \n <div data-role="fieldcontains">        \n    <label>Comment</label>\n    <textarea cols="40" rows="8" name="textarea" id="Comment"></textarea>\n    <a id="AddComment" data-role="button"  data-inline="true">Add</a>\n</div>\n<h3>Comments</h3>\n  <% _.each(_.sortBy(data.comments,function(x){return x.date}).reverse(), function(comment) { %>\n    <div data-role="collapsible" data-collapsed="true">\n      <h3><%=comment.comment.substring(0,100).replace(new RegExp( "\\\\n", "g" ), \'\')%></h3>\n      <p><%=comment.comment.replace(new RegExp( "\\\\n", "g" ), \'<br>\')%></p>\n      <p>Posted By: <img src="http://www.dreamfish.com/mod/profile/icondirect.php?lastcache=1265999843&username=<%=comment.username%>&size=small"><%=comment.username%></p>\n      <p>Posted: <span class="pretty-date" title="<%=comment.date%>"><%=comment.date%></span></p>\n    </div>\n  <% }); %>      ');
+    return this;
+  };
+  __extends(DiscussionView, Backbone.View);
+  DiscussionView.prototype.render = function(data) {
+    data.comments = (typeof data.comments !== "undefined" && data.comments !== null) ? data.comments : [];
+    $('.ui-page-active .ui-content').html(this.template({
+      data: data
+    }));
+    applyStyles();
+    return $('.ui-page-active .ui-content').find('#AddComment').click(__bind(function() {
+      data.comments.push({
+        comment: $('#Comment').val(),
+        date: new Date(),
+        username: CURRENT_USERNAME,
+        user_guid: CURRENT_USERGUID
+      });
+      new Links().update(data, __bind(function() {
+        return this.render(data);
+      }, this));
+      new Activity().add({
+        activity: "Posted a comment on " + data.topic,
+        date: new Date(),
+        username: CURRENT_USERNAME,
+        user_guid: CURRENT_USERGUID
+      }, function() {});
+      return false;
+    }, this));
+  };
   Workspace = function() {
     return Backbone.Controller.apply(this, arguments);
   };
@@ -359,6 +396,7 @@
     "add": "add",
     "other": "other",
     "discussion": "add",
+    "discussion-:id": "discussion_view",
     "activity": "activity",
     "members": "members_menu",
     "members-members": "members_members",
@@ -437,6 +475,11 @@
   };
   Workspace.prototype.notyet = function() {
     return new NotYetView().render();
+  };
+  Workspace.prototype.discussion_view = function(id) {
+    return new Links().get(id, function(item) {
+      return new DiscussionView().render(item);
+    });
   };
   $(document).ready(function() {
     var w;
