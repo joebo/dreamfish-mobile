@@ -59,6 +59,12 @@
   };
   Resource.prototype.saveDoc = function(doc) {
     var data, json;
+    if (doc.comment) {
+      doc.comment = doc.comment.replace(/\'/g, "").replace(/\"/g, '');
+    }
+    if (doc.activity) {
+      doc.activity = doc.activity.replace(/\'/g, "").replace(/\"/g, '');
+    }
     json = JSON.stringify(doc);
     data = {};
     data[LOCAL ? "data" : doc.guid] = json;
@@ -203,7 +209,7 @@
   Activity.prototype.index_keys = function(doc) {
     return {
       guid: doc.guid,
-      activity: doc.activity,
+      activity: doc.activity.replace(/\'/g, "").replace(/\"/g, ''),
       date: doc.date,
       username: doc.username,
       user_guid: doc.user_guid
@@ -255,14 +261,25 @@
       }).reverse()
     }));
     el.find('#DiscussionAdd').click(function() {
-      new Links().add({
+      var link;
+      link = {
         url: $('#url').val(),
         date: new Date(),
         topic: $('#topic').val(),
         comment: $('#textarea').val(),
         username: CURRENT_USERNAME,
         user_guid: CURRENT_USERGUID
-      }, function() {
+      };
+      if (link.url) {
+        link.url = link.url.replace(/\'/g, "").replace(/\"/g, '');
+      }
+      if (link.topic) {
+        link.topic = link.topic.replace(/\'/g, "").replace(/\"/g, '');
+      }
+      if (link.comment) {
+        link.comment = link.comment.replace(/\'/g, "").replace(/\"/g, '');
+      }
+      new Links().add(link, function() {
         LinksN.fetch();
         return LinksN.refresh();
       });
@@ -359,7 +376,7 @@
     return applyStyles();
   };
   DiscussionView = function() {
-    this.template = _.template('  \n  <h1><%=data.topic%></h1>\n  Posted By: <img src="http://www.dreamfish.com/mod/profile/icondirect.php?lastcache=1265999843&username=<%=data.username%>&size=small"><%=data.username%>\n  <p>Posted: <span class="pretty-date" title="<%=data.date%>"><%=data.date%></span></p>\n  \n <div data-role="fieldcontains">        \n    <label>Comment</label>\n    <textarea cols="40" rows="8" name="textarea" id="Comment"></textarea>\n    <a id="AddComment" data-role="button"  data-inline="true">Add</a>\n</div>\n<h3>Comments</h3>\n  <% _.each(_.sortBy(data.comments,function(x){return x.date}).reverse(), function(comment) { %>\n    <div data-role="collapsible" data-collapsed="true">\n      <h3><%=comment.comment.substring(0,100).replace(new RegExp( "\\\\n", "g" ), \'\')%></h3>\n      <p><%=comment.comment.replace(new RegExp( "\\\\n", "g" ), \'<br>\')%></p>\n      <p>Posted By: <img src="http://www.dreamfish.com/mod/profile/icondirect.php?lastcache=1265999843&username=<%=comment.username%>&size=small"><%=comment.username%></p>\n      <p>Posted: <span class="pretty-date" title="<%=comment.date%>"><%=comment.date%></span></p>\n    </div>\n  <% }); %>      ');
+    this.template = _.template('  \n  <h1><%=data.topic%></h1>\n  Posted By: <img src="http://www.dreamfish.com/mod/profile/icondirect.php?lastcache=1265999843&username=<%=data.username%>&size=small"><%=data.username%>\n  <p>Posted: <span class="pretty-date" title="<%=data.date%>"><%=data.date%></span></p>\n  \n <div data-role="fieldcontains">        \n    <label>Comment</label>\n    <textarea cols="40" rows="8" name="textarea" id="Comment"></textarea>\n    <a id="AddComment" data-role="button"  data-inline="true">Add</a>\n</div>\n<h3>Comments</h3>\n  <% _.each(_.sortBy(data.comments,function(x){return x.date}).reverse(), function(comment) { %>\n    <div data-role="collapsible" data-collapsed="true">\n      <h3><%=comment.comment.substring(0,100).replace(/\\n/g, \'\')%></h3>\n      <p><%=comment.comment.replace(/\\n/g, \'<br>\')%></p>\n      <p>Posted By: <img src="http://www.dreamfish.com/mod/profile/icondirect.php?lastcache=1265999843&username=<%=comment.username%>&size=small"><%=comment.username%></p>\n      <p>Posted: <span class="pretty-date" title="<%=comment.date%>"><%=comment.date%></span></p>\n    </div>\n  <% }); %>      ');
     return this;
   };
   __extends(DiscussionView, Backbone.View);
